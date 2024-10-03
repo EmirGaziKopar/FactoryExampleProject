@@ -1,241 +1,196 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
-using Random = UnityEngine.Random;
+using TMPro;
+using static UnityEngine.Rendering.DebugUI.MessageBox;
 
-public class BackgroundRobotController : MonoBehaviour
+public class SimpleWorkerController : MonoBehaviour
 {
-    [SerializeField] private Animator _animator;
-    [SerializeField] private GameObject[] _carryObjects;
-    [SerializeField] private Transform[] _moveTargets;
+    [SerializeField] private Transform[] _moveTargets; // 6 Kaynak noktası (0-5) ve 7. nokta final ürün
+    [SerializeField] private FactoryResourcesController _resourceController; // Kaynakları kontrol eden controller
+    [SerializeField] private GameObject _carryCube; // Taşıdığı kaynak objesi
+    [SerializeField] private TextMeshProUGUI _statusText; // Durum mesajı göstergesi
+    [SerializeField] private float pickupDistance = 2f; // Ürün alma mesafesi
+    [SerializeField] private float dropDistance = 2f;   // Ürün bırakma mesafesi
 
-    private static readonly int Idle = Animator.StringToHash("Idle");
-    private static readonly int CarryMove = Animator.StringToHash("CarryMove");
-    private static readonly int Walking = Animator.StringToHash("Walking");
-    
-    // Eğer robotun elinde taşıması için farklı objeler kullanmak istersen bu satırları sil:
-    [SerializeField] private GameObject _carryCube;
-    
-    private RobotState _currentState;
-    private GameObject _currentCarryObject;
-    private Transform _currentMoveTarget;
+    // Animasyon parametreleri
+    public Animator anim;
 
-    private List<Transform> _moveTargetList;
-
-    public bool isWorking;
-
-    private NavMeshAgent _navMeshAgent;
+    private NavMeshAgent navMeshAgent;
+    private string workerTag; // İşçinin tag'i (isci1, isci2, ...)
+    private int assignedPointIndex; // İşçinin atanmış olduğu kaynak noktası
+    private Transform currentTarget; // Şu anki hedefi
+    private bool hasResource = false; // İşçinin kaynak taşıyıp taşımadığı
+    public Transform chiefEngineerFinalPoint; // Başmühendisin final ürünü götüreceği nokta
+    private Transform chiefStartPosition; // Başmühendisin başlangıç pozisyonu
+    private bool isFinalProductDelivered = false; // Final ürün teslim edildi mi?
 
     private void Awake()
     {
-        _navMeshAgent = GetComponent<NavMeshAgent>();
-        GenerateNewMoveTargetList();
+        navMeshAgent = GetComponent<NavMeshAgent>();
+        navMeshAgent.acceleration = 8f; // Hızlanmayı artır
+        navMeshAgent.stoppingDistance = 0.5f; // Durma mesafesini küçült
+        workerTag = gameObject.tag;
+        assignedPointIndex = GetAssignedPointIndex(workerTag); // İşçinin gideceği kaynak noktası
+        chiefStartPosition = transform; // Başmühendis için başlangıç pozisyonunu sakla
     }
 
-    private void Start()
-    {
-        SetState(RobotState.Idle);
-    }
-    
     private void Update()
     {
-        if (!isWorking)
+        // Eğer başmühendis ise ve tüm kaynaklar toplandıysa final ürünü alıp teslimat noktasına götür
+        if (workerTag == "basMuhendis" && _resourceController.AllResourcesCollected() && !isFinalProductDelivered)
         {
-            if (_currentState != RobotState.Sleeping)
-            { 
-                SetState(RobotState.Sleeping);
-            }
+            HandleChiefEngineer(); // Başmühendis final ürünü taşıma işlemini başlat
+            return;
         }
-        else
+
+        // Eğer kaynak yoksa dur ve Idle animasyonu oynat
+        if (!ResourceAvailableAtPoint(assignedPointIndex) && !hasResource)
         {
-            if (_currentState == RobotState.Sleeping || _currentState == RobotState.Idle)
-            {
-                SetState(RobotState.Idle);
-            }
+            StopMoving();
+            anim.SetBool("Idle", true);
+            anim.SetBool("Walking", false);
+            anim.SetBool("CarryMove", false);
+            return;
         }
-    }
 
-    private void SetAnimation(int animationName)
-    {
-        _animator.SetTrigger(animationName);
-    }
-    public void SetState(RobotState newState)
-    {
-        _currentState = newState;
-        OnStateChanged();
-    }
-
-    private void OnStateChanged()
-    {
-        switch (_currentState)
+        // Eğer kaynak varsa ve taşıdığı kaynak yoksa yürüyüş animasyonu ile hareket et
+        if (ResourceAvailableAtPoint(assignedPointIndex) && !hasResource)
         {
-            case RobotState.Sleeping:
-                SetAnimation(Idle);
-                _currentCarryObject = null;
-                if(_carryCube.activeInHierarchy) _carryCube.SetActive(false);
-                _currentMoveTarget = null;
-                if (_navMeshAgent && _navMeshAgent.enabled)
-                {
-                    _navMeshAgent.isStopped = true;
-                    _navMeshAgent.ResetPath();
-                }
-                break;
+            anim.SetBool("Idle", false);
+            anim.SetBool("Walking", true);
+            anim.SetBool("CarryMove", false);
+            MoveToPoint(_moveTargets[assignedPointIndex]);
+        }
 
-            case RobotState.MovingToPickup:
-                SetAnimation(Walking);
-                break;
+        // Kaynağa ulaşıldığında kaynağı al ve kaynak taşıma animasyonu başlat
+        if (!hasResource && currentTarget != null && Vector3.Distance(transform.position, currentTarget.position) <= pickupDistance)
+        {
+            CollectResource();
+            anim.SetBool("Idle", false);
+            anim.SetBool("Walking", false);
+            anim.SetBool("CarryMove", true);
+        }
 
-            case RobotState.Picking:
-                _currentMoveTarget = null;
-                EnableCarryObject();
-                SetState(RobotState.MovingToDrop);
-                break;
+        // Eğer işçi kaynak taşıyorsa, kaynak toplama noktasına git
+        if (hasResource)
+        {
+            MoveToPoint(_moveTargets[6]); // 7. nokta, final ürün
+            anim.SetBool("Idle", false);
+            anim.SetBool("Walking", false);
+            anim.SetBool("CarryMove", true);
+        }
 
-            case RobotState.MovingToDrop:
-                SetAnimation(CarryMove);
-                SetNewDestination();
-                break;
-
-            case RobotState.Dropping:
-                _currentMoveTarget = null;
-                EnableCarryObject(false);
-                SetAnimation(Idle);
-                break;
-
-            case RobotState.Idle:
-                SetNewDestination();
-                SetState(RobotState.MovingToPickup);
-                isWorking = true;
-                break;
-
-            case RobotState.MovingToSleep:
-                SetAnimation(Walking);
-                break;
+        // Final noktaya ulaştığında kaynağı bırak
+        if (hasResource && currentTarget != null && Vector3.Distance(transform.position, currentTarget.position) <= dropDistance)
+        {
+            DropResource();
+            anim.SetBool("Idle", true);
+            anim.SetBool("Walking", false);
+            anim.SetBool("CarryMove", false);
         }
     }
 
-    //TODO: Gideceği yere varınca burası çalışacak
-    private void EnableCarryObject(bool state = true)
+    private void HandleChiefEngineer()
     {
-        // alıyorum
-        if (!_currentCarryObject)
+        if (!hasResource)
         {
-            if (_carryObjects.Length > 0)
-            {
-                int randomIndex = Random.Range(0, _carryObjects.Length);
-                _currentCarryObject = _carryObjects[randomIndex];
-                return;
-            }
-            // Eğer robotun elinde taşıması için farklı objeler kullanmak istersen else bloğunu komple sil
-
-            if (_carryCube)
-            {
-                Material material = _carryCube.gameObject.GetComponent<Renderer>().material;
-                material.color =  new Color(Random.value, Random.value, Random.value);
-                _currentCarryObject = _carryCube;
-                _currentCarryObject.SetActive(state);
-                return;
-            }
+            // Final ürünü al
+            CollectResource();
+            MoveToPoint(chiefEngineerFinalPoint); // Final ürünü teslimat noktasına götür
+            _statusText.text = "Başmühendis final ürünü alıyor.";
         }
-
-        // bırakıyorum, baska objeler gelirse burasi degisecek
-        _currentCarryObject.SetActive(state);
-        _currentCarryObject = null;
-        
-        SetState(RobotState.Idle);
-    }
-
-    private void SetNewDestination()
-    {
-        if (FindMoveTarget())
+        else if (hasResource && Vector3.Distance(transform.position, chiefEngineerFinalPoint.position) <= dropDistance)
         {
-            MoveToPoint(_currentMoveTarget);
+            DropResource();
+            isFinalProductDelivered = true;
+            _statusText.text = "Başmühendis final ürünü teslim etti.";
+            MoveToPoint(chiefStartPosition); // Başlangıç pozisyonuna dön
         }
     }
-    
-    //TODO: Şimdilik rastgele çalışıyor. Belki ileride belli bir algoritmaya göre çalışabilir.
-    private Transform FindMoveTarget()
+
+    private int GetAssignedPointIndex(string tag)
     {
-        if (_currentMoveTarget == null || _moveTargetList.Count <= 0)
+        switch (tag)
         {
-            if (_moveTargetList.Count <= 0)
-            {
-                GenerateNewMoveTargetList();
-            }
-
-            for (int i = 0; i < _moveTargetList.Count; i++)
-            {
-                float distance = Vector3.Distance(transform.position, _moveTargetList[i].position);
-
-                if (distance > 15f)
-                {
-                    _currentMoveTarget = _moveTargetList[i];
-                    _moveTargetList.RemoveAt(i);
-                    break;
-                }
-            }
-        }
-
-        return _currentMoveTarget;
-    }
-
-    
-    private GameObject _lastCollidedObject;
-    //TODO: Varış noktasına geldiği yerler
-    private void OnTriggerEnter(Collider other)
-    {
-        if (_lastCollidedObject != other.gameObject)
-        {
-            _lastCollidedObject = other.gameObject;
-
-            if (_currentState != RobotState.Sleeping || _currentState != RobotState.Idle)
-            {
-                if (_lastCollidedObject == _currentMoveTarget.gameObject)
-                {
-                    if (other.CompareTag("BackgroundRobotInteraction"))
-                    {
-                        if (_currentCarryObject)
-                        {
-                            SetState(RobotState.Dropping);
-                        }
-                        else
-                        {
-                            SetState(RobotState.Picking);
-                        }
-                    }
-                }
-            }
+            case "isci1": return 0;
+            case "isci2": return 1;
+            case "isci3": return 2;
+            case "isci4": return 3;
+            case "isci5": return 4;
+            case "isci6": return 5;
+            case "basMuhendis": return 6; // Başmühendis final ürün işlemi yapacak
+            default: return -1; // Geçersiz tag
         }
     }
 
     private void MoveToPoint(Transform target)
     {
-        _navMeshAgent.SetDestination(target.position);
+        if (target != null)
+        {
+            currentTarget = target;
+            navMeshAgent.SetDestination(target.position);
+            _statusText.text = $"{workerTag} çalışıyor...";
+        }
     }
-    
-    private void GenerateNewMoveTargetList()
+
+    private void StopMoving()
     {
-        _moveTargetList = new List<Transform>();
-
-        if (_moveTargets.Length > 0)
-        {
-            _moveTargetList.AddRange(_moveTargets);
-            Shuffle(_moveTargetList); 
-        }
-        else
-        {
-            Debug.LogWarning("Robotun gidecegi hicbir yer yok. Inspector panelinden gidecegi yerlerin atanmasi gerekli.");
-        }
-
+        navMeshAgent.isStopped = true;
+        _statusText.text = $"{workerTag} kaynak bekliyor";
     }
-    public static void Shuffle<T>(IList<T> ts)
+
+    private bool ResourceAvailableAtPoint(int pointIndex)
     {
-        var count = ts.Count;
-        var last = count - 1;
-        for (var i = 0; i < last; ++i)
+        return _resourceController.HasResourcesForWorker(workerTag);
+    }
+
+    private void CollectResource()
+    {
+        /*
+        public static int steel = 100;
+    public static int copper = 100;
+    public static int plastic = 100;
+    public static int glass = 100;
+    public static int rubber = 100;
+    public static int silicon = 100;
+        */
+        if (gameObject.tag == "isci1")
         {
-            var r = Random.Range(i, count);
-            (ts[i], ts[r]) = (ts[r], ts[i]);
+            FactoryResourcesController.steel -= 1;
         }
+        else if (gameObject.tag == "isci2")
+        {
+            FactoryResourcesController.copper -= 1;
+        }
+        else if (gameObject.tag == "isci3")
+        {
+            FactoryResourcesController.plastic -= 1;
+        }
+        else if (gameObject.tag == "isci4")
+        {
+            FactoryResourcesController.glass -= 1;
+        }
+        else if (gameObject.tag == "isci5")
+        {
+            FactoryResourcesController.rubber -= 1;
+        }
+        else if (gameObject.tag == "isci6")
+        {
+            FactoryResourcesController.silicon -= 1;
+        }
+        hasResource = true;
+        _carryCube.SetActive(true); // Kaynak alındı, taşıma başlasın
+        _statusText.text = $"{workerTag} kaynakları topladı";
+        currentTarget = null; // Yeni hedef final nokta olacak
+    }
+
+    private void DropResource()
+    {
+        hasResource = false;
+        _carryCube.SetActive(false); // Kaynak bırakıldı
+        _statusText.text = $"{workerTag} kaynakları bıraktı";
+        //Teslim edilen siparişleri burada göster 
+        currentTarget = null; // Tekrar kaynağa geri dönecek
     }
 }
