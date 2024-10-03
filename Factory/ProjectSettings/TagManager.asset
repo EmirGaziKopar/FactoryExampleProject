@@ -1,0 +1,62 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - drill
+  - conveyor
+  - product2
+  - product1
+  - tower
+  - diamondOre
+  - product3
+  - goldOre
+  - BackgroundRobotInteraction
+  - Spawn
+  - Product
+  - Stack
+  - isci1
+  - isci2
+  - isci3
+  - isci4
+  - isci5
+  - isci6
+  - basMuhendis
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - Ground
+  - Indicator
+  - Robot
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
