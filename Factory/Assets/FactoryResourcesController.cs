@@ -31,13 +31,13 @@ public class FactoryResourcesController : MonoBehaviour
 
     public float Speed;
  
-    public static int steel = 1;
-    public static int copper = 1;
-    public static int plastic = 1;
-    public static int glass = 1;
-    public static int rubber = 1;
-    public static int silicon = 1;
-    public static int motor = 1;
+    public static int steel = 50;
+    public static int copper = 50;
+    public static int plastic = 50;
+    public static int glass = 50;
+    public static int rubber = 50;
+    public static int silicon = 50;
+    public static int motor = 50;
 
     public TextMeshProUGUI TextOfCopper;
     public TextMeshProUGUI TextOfSteel;
