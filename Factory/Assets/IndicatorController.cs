@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 
 public class IndicatorController : MonoBehaviour
 {
+    public GridSystemController gridSystemController;
     public float targetAlpha = 0.1f;
     public float lerpSpeed = 5f;
     private Material objMaterial;
@@ -20,9 +21,10 @@ public class IndicatorController : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        gridSystemController = GetComponent<GridSystemController>();
         objMaterial = GetComponent<Renderer>().material;
 
-        SetMaterialAlpha(0); //Bu Transparanlýk anlamýna geliyor (Tamamen þeffaf)
+        //SetMaterialAlpha(0); //Bu Transparanlýk anlamýna geliyor (Tamamen þeffaf)
 
         UI.SetActive(false);
 
@@ -31,33 +33,35 @@ public class IndicatorController : MonoBehaviour
 
     void Update()
     {
-        if(isMouseOver && !isClicked)
+        if (gridSystemController.isActive)
         {
-            float alpha = Mathf.Lerp(objMaterial.color.a, targetAlpha, Time.deltaTime * lerpSpeed);
-            SetMaterialAlpha(alpha);
-        }
+            if (isMouseOver && !isClicked)
+            {
+                //float alpha = Mathf.Lerp(objMaterial.color.a, targetAlpha, Time.deltaTime * lerpSpeed);
+                //SetMaterialAlpha(alpha);
+            }
 
-        if(isMouseOver && Input.GetMouseButtonDown(0)) //Sýfýr left click
-        {
-            isClicked = true;
-            shouldStayTransparent = true; //Ne zaman transparan kalmalýyým ? 
-            UI.SetActive(true); //Objeyi aktif hale getirdiðimizi gösterir
-        }
+            if (isMouseOver && Input.GetMouseButtonDown(0)) //Sýfýr left click
+            {
+                isClicked = true;
+                shouldStayTransparent = true; //Ne zaman transparan kalmalýyým ? 
+                UI.SetActive(true); //Objeyi aktif hale getirdiðimizi gösterir
+            }
 
-        if(isMouseOver == false && Input.GetMouseButtonDown(0) && !IsPointerOverUI())
-        {
-            isClicked = false;
-            shouldStayTransparent = false;
-            SetMaterialAlpha(0f); //Hemen þeffaf hale gelecek
-            UI.SetActive(false);
-        }
+            if (isMouseOver == false && Input.GetMouseButtonDown(0) && !IsPointerOverUI())
+            {
+                isClicked = false;
+                shouldStayTransparent = false;
+                //SetMaterialAlpha(0f); //Hemen þeffaf hale gelecek
+                UI.SetActive(false);
+            }
 
-        if (shouldStayTransparent)
-        {
-            float alpha = Mathf.Lerp(objMaterial.color.a, targetAlpha, Time.deltaTime * lerpSpeed);
-            SetMaterialAlpha(alpha);
+            if (shouldStayTransparent)
+            {
+                //float alpha = Mathf.Lerp(objMaterial.color.a, targetAlpha, Time.deltaTime * lerpSpeed);
+                //SetMaterialAlpha(alpha);
+            }
         }
-
     }
 
     private void OnMouseOver()
@@ -71,7 +75,7 @@ public class IndicatorController : MonoBehaviour
 
         if (!isClicked) //Exit olduysak ve clicklemiyorsak
         {
-            SetMaterialAlpha(0f);
+            //SetMaterialAlpha(0f);
         }
     }
 
