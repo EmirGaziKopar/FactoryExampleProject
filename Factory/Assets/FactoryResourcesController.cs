@@ -4,6 +4,9 @@ using UnityEngine.UI;
 
 public class FactoryResourcesController : MonoBehaviour
 {
+    public static int DeliveryPlastic;
+    public static int DeliveryCopper;
+    public static int DeliverySteel;
     public static bool canProduceFinalProduct;
 
     public bool motorProduced;

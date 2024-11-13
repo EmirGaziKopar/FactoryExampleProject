@@ -6,7 +6,6 @@ using static UnityEngine.UI.GridLayoutGroup;
 
 public class ResourceProductionController : MonoBehaviour
 {
-
     public TextMeshProUGUI copper;
     public TextMeshProUGUI plastic;
     public TextMeshProUGUI steel;
@@ -24,19 +23,13 @@ public class ResourceProductionController : MonoBehaviour
 
     void Start()
     {
-        // Panel altýndaki butonlarý GetChild ile alýyoruz (bu script zaten Panel'in içinde olduðu için doðrudan eriþilebilir)
         buttons = new Button[transform.childCount];
         for (int i = 0; i < transform.childCount; i++)
         {
             buttons[i] = transform.GetChild(i).GetComponent<Button>();
         }
 
-        // Butonlar için click eventleri tanýmlanýyor
-        //buttons[0].onClick.AddListener(() => OnButtonClick(0));
-        //buttons[1].onClick.AddListener(() => OnButtonClick(1));
-        //buttons[2].onClick.AddListener(() => OnButtonClick(2));
-
-        ResetButtonColors(); // Tüm butonlarýn renklerini sýfýrla
+        ResetButtonColors();
     }
 
     void Update()
@@ -52,8 +45,8 @@ public class ResourceProductionController : MonoBehaviour
                 {
                     case 0:
                         copperCount++;
-                        copper.text = " "+copperCount.ToString(); 
-                        Debug.Log("Copper üretiliyor: " + copperCount);                       
+                        copper.text = " " + copperCount.ToString();
+                        Debug.Log("Copper üretiliyor: " + copperCount);
                         break;
                     case 1:
                         plasticCount++;
@@ -90,9 +83,12 @@ public class ResourceProductionController : MonoBehaviour
 
     void SetButtonColor(Button button, Color color)
     {
-        // Button'un colors özelliðiyle Normal rengini deðiþtir
+        // Button'un tüm durumlarýnýn rengini deðiþtir
         ColorBlock cb = button.colors;
         cb.normalColor = color;
+        cb.highlightedColor = color;
+        cb.pressedColor = color;
+        cb.selectedColor = color;
         button.colors = cb;
     }
 }
