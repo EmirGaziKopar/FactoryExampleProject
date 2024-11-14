@@ -6,11 +6,14 @@ using static UnityEngine.UI.GridLayoutGroup;
 
 public class ResourceProductionController : MonoBehaviour
 {
+    public GridSystemController indicatorController;
     public TextMeshProUGUI copper;
     public TextMeshProUGUI plastic;
     public TextMeshProUGUI steel;
     public Color defaultColor = Color.white; // Varsayýlan buton rengi
     public Color selectedColor = Color.green; // Seçili buton rengi
+    public Color opacityZero = new Color(1f, 1f, 1f, 0f); // Beyaz, tam þeffaf
+
     public float timer = 5f; // Üretim için zamanlayýcý (dýþarýdan ayarlanabilir)
 
     public Button[] buttons; // Panel altýndaki butonlar
@@ -70,6 +73,7 @@ public class ResourceProductionController : MonoBehaviour
         selectedButtonIndex = index;
         ResetButtonColors();
         SetButtonColor(buttons[selectedButtonIndex], selectedColor); // Seçili butonu yeþil yap
+
     }
 
     void ResetButtonColors()
